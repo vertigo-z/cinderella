@@ -13,7 +13,7 @@ while at least one IP must be revealed in DNS records, VPNs such as wireguard en
 * clears ip from rate-limit map after 60 seconds
 * logs are fail2ban-ready (.conf regex included)
 * fully supports multiple recipients
-* client, size, and timeout protect against resource exhaustion
+* maxClients, maxSize, and socketTimeout protect against resource exhaustion
 
 ## usage:
 
