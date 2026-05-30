@@ -8,16 +8,13 @@ const LISTEN_PORT = process.env.LISTEN_PORT || "25";
 const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
 const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
-const blacklist = [];
-const whitelist = [];
-
 function loadBlacklist(bl) {
-  if (!bl) return;
-  blacklist = bl.split(",").map(d => d.trim().toLowerCase());
+  if (!bl) { const blacklist = []; return; }
+  const blacklist = bl.split(",").map(d => d.trim().toLowerCase());
 }
 
 function loadWhitelist(wl) {
-  if (!wl) return;
+  if (!wl) { const whitelist = []; return; }
   whitelist = wl.split(",").map(d => d.trim().toLowerCase());
 }
 
