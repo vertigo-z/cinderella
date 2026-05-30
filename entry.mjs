@@ -85,7 +85,7 @@ const server = new SMTPServer({
       console.log(
         `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=ratelimited ip=${ip}`
       );
-      return callback(new Error("421 4.7.26 Rate limit exceeded"));
+      return callback(Object.assign(new Error("4.7.26 Rate limit exceeded"), { responseCode: 421 }));
     }
     ipLastSeen.set(ip, now);
     callback();
@@ -98,7 +98,7 @@ const server = new SMTPServer({
       console.log(
         `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${sender}> to=<${address.address}> reason=unknown-rcpt-domain ip=${ip}`
       );
-      return callback(new Error("551 5.7.1 Forwarding to remote hosts disabled"));
+      return callback(Object.assign(new Error("5.7.1 Forwarding to remote hosts disabled"), { responseCode: 551 }));
     }
     callback();
   },
