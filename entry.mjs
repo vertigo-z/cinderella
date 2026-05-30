@@ -8,6 +8,8 @@ const LISTEN_PORT = process.env.LISTEN_PORT || "25";
 const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
 const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
+const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || '*').split(",").map(d => d.trim().toLowerCase())
+
 const TLS_CERT = process.env.TLS_CERT;
 const TLS_KEY = process.env.TLS_KEY;
 
@@ -83,12 +85,20 @@ const server = new SMTPServer({
       console.log(
         `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address}> reason=ratelimited ip=${ip}`
       );
-      return callback(new Error());
+      return callback(new Error("421 4.7.26 Rate limit exceeded"));
     }
     ipLastSeen.set(ip, now);
     callback();
   },
   onRcptTo(address, session, callback) {
+    const ip = session.remoteAddress;
+    const domain = address.address.split("@")[1]?.toLowerCase();
+    if (ALLOWED_DOMAINS[0] !== '*' && !ALLOWED_DOMAINS.includes(domain)) {
+      console.log(
+        `[` + new Date().toISOString() + `] ` + `REJECTED RCPT to=<${address.address}> reason=unknown-rcpt-domain ip=${ip}`
+      );
+      return callback(new Error("551 5.7.1 Forwarding to remote hosts disabled"));
+    }
     callback();
   },
 });
