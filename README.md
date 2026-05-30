@@ -3,9 +3,12 @@ a javascript intranet mail forwarding framework. hides the true ip address of th
 
 while at least one IP must be revealed in DNS records, VPNs such as wireguard enable data to be relayed securely and privately between servers so that your mail server can be sitting somewhere deep inside the network, away from the prying eyes of the public and behind a restrictive firewall, while still being able to send and receive mail to and from the wider internet. 
 
+<sup>this framework has been tested exclusively with wireguard with an mtu of `1280`</sup>
+
 ### features:
 * `entry.mjs` listens on port 25 for incoming mail
 * `STARTTLS` enabled by default
+* fully supports blacklists, set `BANNED_DOMAINS` env variable
 * uses future-proof ESM format
 * setting known domains blocks incoming mail not intended for you
 * rate limiting that allows 1 incoming email per-second, per-ip
@@ -13,6 +16,7 @@ while at least one IP must be revealed in DNS records, VPNs such as wireguard en
 * `hop.mjs` can be duplicated to add new routes or extend relay paths
 * clears ip from rate-limit map after 60 seconds
 * logs are fail2ban-ready (.conf regex included)
+* outgoing mail disabled by default, enabled with env variable
 * fully supports multiple recipients
 * `maxClients`, `maxSize`, and `socketTimeout` protect against resource exhaustion
 
@@ -57,7 +61,9 @@ WantedBy=multi-user.target
 ```
 TLS_CERT=/var/mail/tls/fullchain.pem
 TLS_KEY=/var/mail/tls/privkey.pem
+OUTGOING_ENABLED=1
 ALLOWED_DOMAINS=example.com,example.com,example.com
+BANNED_DOMAINS=evil.com,enemy.com
 HOSTNAME=mail.example.com
 ```
 
