@@ -5,6 +5,7 @@ while at least one IP must be revealed in DNS records, VPNs such as wireguard en
 
 ### features:
 * `entry.mjs` listens on port 25 for incoming mail
+* STARTTLS enabled by default
 * uses future-proof ESM format
 * setting known domains blocks incoming mail not intended for you
 * rate limiting that allows 1 incoming email per-second, per-ip
