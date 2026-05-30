@@ -119,3 +119,26 @@ outgoingServer.listen(OUTGOING_PORT, LISTEN_HOST, () => {
     `MIDDLE OUTGOING listening on ${LISTEN_HOST}:${OUTGOING_PORT} -> outgoing hop ${OUTGOING_NEXT_HOP}`
   );
 });
+
+function shutdown() {
+  let pending = 2;
+  const done = () => {
+    pending--;
+    if (pending === 0) process.exit(0);
+  };
+  server.close(() => {
+    console.log(`MIDDLE RELAY closed`);
+    done();
+  });
+  outgoingServer.close(() => {
+    console.log(`MIDDLE OUTGOING closed`);
+    done();
+  });
+  setTimeout(() => {
+    console.log(`Forcing exit after timeout`);
+    process.exit(1);
+  }, 10000);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
