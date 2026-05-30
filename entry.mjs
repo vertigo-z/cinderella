@@ -9,7 +9,7 @@ const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
 const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
 const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || '*').split(",").map(d => d.trim().toLowerCase());
-const BLACKLIST = []
+const BLACKLIST = [];
 
 function loadBlacklist(blacklist) {
   if (!blacklist) return;
