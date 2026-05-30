@@ -8,7 +8,7 @@ const LISTEN_PORT = process.env.LISTEN_PORT || "25";
 const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
 const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
-const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || '*').split(",").map(d => d.trim().toLowerCase())
+const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || '*').split(",").map(d => d.trim().toLowerCase());
 
 const TLS_CERT = process.env.TLS_CERT;
 const TLS_KEY = process.env.TLS_KEY;
@@ -69,7 +69,7 @@ const server = new SMTPServer({
           console.error(
             `[` + new Date().toISOString() + `] ` + `RELAY FAILED: ${err.message} from=<${envelope.from}> to=<${envelope.to.join(",")}> ip=${originalIp}`
           );
-          callback(new Error("relay failed"));
+          callback(new Error(err));
         });
     });
     stream.on("error", (err) => callback(err));
@@ -95,7 +95,7 @@ const server = new SMTPServer({
     const domain = address.address.split("@")[1]?.toLowerCase();
     if (ALLOWED_DOMAINS[0] !== '*' && !ALLOWED_DOMAINS.includes(domain)) {
       console.log(
-        `[` + new Date().toISOString() + `] ` + `REJECTED RCPT to=<${address.address}> reason=unknown-rcpt-domain ip=${ip}`
+        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${sender}> to=<${address}> reason=unknown-rcpt-domain ip=${ip}`
       );
       return callback(new Error("551 5.7.1 Forwarding to remote hosts disabled"));
     }
@@ -199,6 +199,9 @@ const outgoingServer = new SMTPServer({
 outgoingServer.listen(OUTGOING_PORT, LISTEN_HOST, () => {
   console.log(
     `[` + new Date().toISOString() + `] ` + `OUTGOING listening on ${LISTEN_HOST}:${OUTGOING_PORT} -> external MX`
+  );
+  console.log(
+    `[` + new Date().toISOString() + `] ` + `RECEIVING MAIL FOR: ${ALLOWED_DOMAINS}`
   );
 });
 
