@@ -34,7 +34,6 @@ process.on("unhandledRejection", (reason) => {
 const server = new SMTPServer({
   name: HOSTNAME,
   secure: false,
-  requireSTARTTLS: true,
   authOptional: true,
   maxClients: 25,
   socketTimeout: 30000,
