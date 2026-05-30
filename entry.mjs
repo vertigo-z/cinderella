@@ -83,7 +83,7 @@ const server = new SMTPServer({
     const last = ipLastSeen.get(ip) || 0;
     if (now - last < 1000) {
       console.log(
-        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address}> reason=ratelimited ip=${ip}`
+        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=ratelimited ip=${ip}`
       );
       return callback(new Error("421 4.7.26 Rate limit exceeded"));
     }
@@ -92,10 +92,11 @@ const server = new SMTPServer({
   },
   onRcptTo(address, session, callback) {
     const ip = session.remoteAddress;
+    const sender = session.envelope.mailFrom.address;
     const domain = address.address.split("@")[1]?.toLowerCase();
     if (ALLOWED_DOMAINS[0] !== '*' && !ALLOWED_DOMAINS.includes(domain)) {
       console.log(
-        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${sender}> to=<${address}> reason=unknown-rcpt-domain ip=${ip}`
+        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${sender}> to=<${address.address}> reason=unknown-rcpt-domain ip=${ip}`
       );
       return callback(new Error("551 5.7.1 Forwarding to remote hosts disabled"));
     }
