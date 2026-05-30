@@ -191,3 +191,26 @@ outgoingServer.listen(OUTGOING_PORT, LISTEN_HOST, () => {
     `[` + new Date().toISOString() + `] ` + `OUTGOING listening on ${LISTEN_HOST}:${OUTGOING_PORT} -> external MX`
   );
 });
+
+function shutdown() {
+  let pending = 2;
+  const done = () => {
+    pending--;
+    if (pending === 0) process.exit(0);
+  };
+  server.close(() => {
+    console.log(`[` + new Date().toISOString() + `] ` + `ENTRYRELAY closed`);
+    done();
+  });
+  outgoingServer.close(() => {
+    console.log(`[` + new Date().toISOString() + `] ` + `OUTGOING closed`);
+    done();
+  });
+  setTimeout(() => {
+    console.log(`[` + new Date().toISOString() + `] ` + `Forcing exit after timeout`);
+    process.exit(1);
+  }, 10000);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
