@@ -23,12 +23,10 @@ const ipLastSeen = new Map();
 
 process.on("uncaughtException", (err) => {
   console.error(`UNCAUGHT: ${err.message}`);
-  process.exit(1);
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error(`UNHANDLED REJECTION: ${reason}`);
-  process.exit(1);
 });
 
 const server = new SMTPServer({
@@ -41,6 +39,7 @@ const server = new SMTPServer({
   maxSize: 50 * 1024 * 1024,
   cert: fs.readFileSync(TLS_CERT),
   key: fs.readFileSync(TLS_KEY),
+  minVersion: "TLSv1.2",
   disabledCommands: ["AUTH"],
   onData(stream, session, callback) {
     const chunks = [];
@@ -60,13 +59,13 @@ const server = new SMTPServer({
         })
         .then(() => {
           console.log(
-            `RELAYED from=<${envelope.from}> to=<${envelope.to.join(",")}>`
+            `[` + new Date().toISOString() + `] ` + `RELAYED from=<${envelope.from}> to=<${envelope.to.join(",")}> ip=${originalIp}`
           );
           callback();
         })
         .catch((err) => {
           console.error(
-            `RELAY FAILED: ${err.message} from=<${envelope.from}> to=<${envelope.to.join(",")}>`
+            `[` + new Date().toISOString() + `] ` + `RELAY FAILED: ${err.message} from=<${envelope.from}> to=<${envelope.to.join(",")}> ip=${originalIp}`
           );
           callback(new Error("relay failed"));
         });
@@ -82,7 +81,7 @@ const server = new SMTPServer({
     const last = ipLastSeen.get(ip) || 0;
     if (now - last < 1000) {
       console.log(
-        `BLOCKED from=<${address}> reason=ratelimited ip=${ip}`
+        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address}> reason=ratelimited ip=${ip}`
       );
       return callback(new Error());
     }
@@ -104,7 +103,7 @@ function clearIPs() {
 server.listen(LISTEN_PORT, LISTEN_HOST, () => {
   setInterval(clearIPs, 60 * 1000);
   console.log(
-    `ENTRYRELAY listening on ${LISTEN_HOST}:${LISTEN_PORT} (STARTTLS) -> next hop ${NEXT_HOP}`
+    `[` + new Date().toISOString() + `] ` + `ENTRYRELAY listening on ${LISTEN_HOST}:${LISTEN_PORT} (STARTTLS) -> next hop ${NEXT_HOP}`
   );
 });
 
@@ -157,7 +156,7 @@ const outgoingServer = new SMTPServer({
               raw,
             });
             console.log(
-              `OUTGOING DELIVERED from=<${envelope.from}> to=<${recipients.join(",")}> mx=${mx}`
+              `[` + new Date().toISOString() + `] ` + `OUTGOING DELIVERED from=<${envelope.from}> to=<${recipients.join(",")}> mx=${mx}`
             );
           } finally {
             transport.close();
@@ -167,7 +166,7 @@ const outgoingServer = new SMTPServer({
       const failures = results.filter((r) => r.status === "rejected");
       if (failures.length > 0) {
         for (const f of failures) {
-          console.error(`OUTGOING FAILED: ${f.reason?.message}`);
+          console.error(`[` + new Date().toISOString() + `] ` + `OUTGOING FAILED: ${f.reason?.message}`);
         }
         callback(new Error("delivery failed"));
       } else {
@@ -189,6 +188,6 @@ const outgoingServer = new SMTPServer({
 
 outgoingServer.listen(OUTGOING_PORT, LISTEN_HOST, () => {
   console.log(
-    `OUTGOING listening on ${LISTEN_HOST}:${OUTGOING_PORT} -> external MX`
+    `[` + new Date().toISOString() + `] ` + `OUTGOING listening on ${LISTEN_HOST}:${OUTGOING_PORT} -> external MX`
   );
 });
