@@ -8,16 +8,17 @@ const LISTEN_PORT = process.env.LISTEN_PORT || "25";
 const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
 const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
-const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || '*').split(",").map(d => d.trim().toLowerCase());
-const BLACKLIST = [];
+const blacklist = [];
+const whitelist = [];
 
-function loadBlacklist(blacklist) {
-  if (!blacklist) return;
-  let i = 0;
-  const bannedDomains = blacklist.split(",").map(d => d.trim().toLowerCase());
-  for (const domain of bannedDomains) {
-    BLACKLIST[i] = domain; i++;
-  }
+function loadBlacklist(bl) {
+  if (!bl) return;
+  blacklist = bl.split(",").map(d => d.trim().toLowerCase());
+}
+
+function loadWhitelist(wl) {
+  if (!wl) return;
+  whitelist = wl.split(",").map(d => d.trim().toLowerCase());
 }
 
 const TLS_CERT = process.env.TLS_CERT;
@@ -105,7 +106,7 @@ const server = new SMTPServer({
     }
     ipLastSeen.set(ip, now);
     const domain = address.address.split("@")[1]?.toLowerCase();
-    if (BLACKLIST.includes(domain)){
+    if (blacklist.includes(domain)){
       console.log(
         `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address}> reason=domain-blacklisted ip=${ip}`
       );
@@ -117,7 +118,7 @@ const server = new SMTPServer({
     const ip = session.remoteAddress;
     const sender = session.envelope.mailFrom.address;
     const domain = address.address.split("@")[1]?.toLowerCase();
-    if (ALLOWED_DOMAINS[0] !== '*' && !ALLOWED_DOMAINS.includes(domain)) {
+    if (!whitelist.includes(domain)) {
       console.log(
         `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${sender}> to=<${address}> reason=unknown-rcpt-domain ip=${ip}`
       );
@@ -136,6 +137,7 @@ function clearIPs() {
 
 server.listen(LISTEN_PORT, LISTEN_HOST, () => {
   loadBlacklist(process.env.BANNED_DOMAINS);
+  loadWhitelist(process.env.ALLOWED_DOMAINS);
   setInterval(clearIPs, 60 * 1000);
   console.log(
     `[` + new Date().toISOString() + `] ` + `ENTRYRELAY listening on ${LISTEN_HOST}:${LISTEN_PORT} (STARTTLS) -> next hop ${NEXT_HOP}`
