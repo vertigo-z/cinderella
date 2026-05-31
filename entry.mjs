@@ -119,30 +119,27 @@ const server = new SMTPServer({
       );
       return callback(Object.assign(new Error("5.7.1 Domain blacklisted"), { responseCode: 550 }));
     }
-    const vS = spf(
+    spf(
       { sender: address.address, ip, 
         helo: session.hostName || "unknown", 
-        mta: HOSTNAME });
-    vS
-      .then((result) => {
-        if (result.status.result === "fail") {
+        mta: HOSTNAME }).then((result) => {
+          if (result.status.result === "fail") {
+            console.log(
+              `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=spf-fail ip=${ip}`
+            );
+            return callback(Object.assign(new Error("5.7.23 SPF check failed"), { responseCode: 550 }));
+          }
+          session.spfResult = result;
           console.log(
-            `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=spf-fail ip=${ip}`
+            `[` + new Date().toISOString() + `] ` + `SPF ${result.status.result} from=<${address.address}> ip=${ip}`
           );
-          return callback(Object.assign(new Error("5.7.23 SPF check failed"), { responseCode: 550 }));
-        }
-        session.spfResult = result;
-        console.log(
-          `[` + new Date().toISOString() + `] ` + `SPF ${result.status.result} from=<${address.address}> ip=${ip}`
-        );
-        callback();
-      })
-      .catch((err) => {
-        console.error(
-          `[` + new Date().toISOString() + `] ` + `SPF ERROR: ${err.message} from=<${address.address}> ip=${ip}`
-        );
-        callback();
-      });
+          callback();
+        }).catch((err) => {
+          console.error(
+            `[` + new Date().toISOString() + `] ` + `SPF ERROR: ${err.message} from=<${address.address}> ip=${ip}`
+          );
+          callback();
+        });
   },
   onRcptTo(address, session, callback) {
     const ip = session.remoteAddress;
