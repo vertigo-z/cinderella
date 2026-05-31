@@ -10,6 +10,7 @@ while at least one IP must be revealed in DNS records, VPNs such as wireguard en
 * `STARTTLS` enabled by default
 * fully supports blacklists, set `BANNED_DOMAINS` env variable
 * uses future-proof ESM format
+* checks SPF and responds accordingly
 * setting known domains blocks incoming mail not intended for you
 * rate limiting that allows 1 incoming email per-second, per-ip
 * firewall to be configured to only allow VPN traffic through the outgoing port
