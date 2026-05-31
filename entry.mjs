@@ -2,6 +2,7 @@ import { SMTPServer } from "smtp-server";
 import nodemailer from "nodemailer";
 import fs from "fs";
 import dns from "dns";
+import { spf } from "mailauth/lib/spf/index.js";
 
 const NEXT_HOP = process.env.NEXT_HOP || "10.0.0.1:10025";
 const LISTEN_PORT = process.env.LISTEN_PORT || "25";
@@ -63,11 +64,13 @@ const server = new SMTPServer({
         from: session.envelope.mailFrom.address,
         to: session.envelope.rcptTo.map((r) => r.address),
       };
+      const spfHeader = session.spfResult?.header ? `${session.spfResult.header}\r\n` : "";
       const prepended = `X-Original-IP: ${originalIp}\r\n${raw.toString("utf-8")}`;
+      const withSpf = spfHeader + prepended;
       transporter
         .sendMail({
           envelope,
-          raw: prepended,
+          raw: withSpf,
         })
         .then(() => {
           console.log(
@@ -85,6 +88,10 @@ const server = new SMTPServer({
     stream.on("error", (err) => callback(err));
   },
   onConnect(session, callback) {
+    const ip = session.remoteAddress;
+    console.log(
+      `[` + new Date().toISOString() + `] ` +  `CONNECTION established with ${ip}`
+    );
     callback();
   },
   onSecure(socket, session, callback) {
@@ -100,7 +107,7 @@ const server = new SMTPServer({
     const last = ipLastSeen.get(ip) || 0;
     if (now - last < 1000) {
       console.log(
-        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address}> reason=ratelimited ip=${ip}`
+        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=ratelimited ip=${ip}`
       );
       return callback(Object.assign(new Error("4.7.26 Rate limit exceeded"), { responseCode: 421 }));
     }
@@ -108,11 +115,34 @@ const server = new SMTPServer({
     const domain = address.address.split("@")[1]?.toLowerCase();
     if (blacklist.includes(domain)){
       console.log(
-        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address}> reason=domain-blacklisted ip=${ip}`
+        `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=domain-blacklisted ip=${ip}`
       );
       return callback(Object.assign(new Error("5.7.1 Domain blacklisted"), { responseCode: 550 }));
     }
-    callback();
+    const vS = spf(
+      { sender: address.address, ip, 
+        helo: session.hostName || "unknown", 
+        mta: HOSTNAME });
+    vS
+      .then((result) => {
+        if (result.status.result === "fail") {
+          console.log(
+            `[` + new Date().toISOString() + `] ` + `BLOCKED from=<${address.address}> reason=spf-fail ip=${ip}`
+          );
+          return callback(Object.assign(new Error("5.7.23 SPF check failed"), { responseCode: 550 }));
+        }
+        session.spfResult = result;
+        console.log(
+          `[` + new Date().toISOString() + `] ` + `SPF ${result.status.result} from=<${address.address}> ip=${ip}`
+        );
+        callback();
+      })
+      .catch((err) => {
+        console.error(
+          `[` + new Date().toISOString() + `] ` + `SPF ERROR: ${err.message} from=<${address.address}> ip=${ip}`
+        );
+        callback();
+      });
   },
   onRcptTo(address, session, callback) {
     const ip = session.remoteAddress;
