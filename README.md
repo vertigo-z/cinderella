@@ -3,8 +3,6 @@ a javascript intranet mail forwarding framework. hides the true ip address of th
 
 while at least one IP must be revealed in DNS records, VPNs such as wireguard enable data to be relayed securely and privately between servers so that your mail server can be sitting somewhere deep inside the network, away from the prying eyes of the public and behind a restrictive firewall, while still being able to send and receive mail to and from the wider internet. 
 
-<sup>this framework has been tested exclusively with wireguard with an mtu of `1280`</sup>
-
 ### features:
 * `entry.mjs` listens on port 25 for incoming mail
 * `STARTTLS` enabled by default
