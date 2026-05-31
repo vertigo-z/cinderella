@@ -23,7 +23,7 @@ while at least one IP must be revealed in DNS records, VPNs such as wireguard en
 
 ## usage:
 
-## dependencies:
+### dependencies:
 * `smtp-server^3.13.6`
 * `nodemailer^7.0.3`
 * `mailauth^4.13.3`
