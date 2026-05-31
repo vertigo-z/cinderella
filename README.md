@@ -81,4 +81,6 @@ datepattern = \[%%Y-%%m-%%dT%%H:%%M:%%S.%%fZ\]
 failregex = ^ RELAY FAILED: Message failed: 450 relay failed from=<[^>]+> to=<[^>]+> ip=<HOST>$
             ^ BLOCKED from=<[^>]+> reason=ratelimited ip=<HOST>$
             ^ BLOCKED from=<[^>]+> to=<[^>]+> reason=unknown-rcpt-domain ip=<HOST>$
+            ^ BLOCKED from=<[^>]+> reason=domain-blacklisted ip=<HOST>$
+            ^ BLOCKED from=<[^>]+> reason=spf-fail ip=<HOST>$
 ```
