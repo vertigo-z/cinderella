@@ -33,6 +33,61 @@ const transporter = nodemailer.createTransport({
   tls: { rejectUnauthorized: false },
 });
 
+const QUEUE_RETRY_MS = Number(process.env.QUEUE_RETRY_MS) || 12 * 60 * 60 * 1000;
+const QUEUE_EXPIRY_MS = Number(process.env.QUEUE_EXPIRY_MS) || 7 * 24 * 60 * 60 * 1000;
+
+const mailQueue = [];
+let flushing = false;
+
+function relayUnreachable(err) {
+  if (!err) return false;
+  if (err.responseCode) return false;
+  if (err.code && ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "ESOCKET", "ECONNABORTED"].includes(err.code)) return true;
+  return /greeting never received|socket|connection (refused|reset|timed out)|timed out/i.test(err.message || "");
+}
+
+function expireQueue() {
+  const cutoff = Date.now() - QUEUE_EXPIRY_MS;
+  while (mailQueue.length > 0 && mailQueue[0].queuedAt < cutoff) {
+    const entry = mailQueue.shift();
+    console.error(
+      `[` + new Date().toISOString() + `] ` + `EXPIRED from=<${entry.envelope.from}> to=<${entry.envelope.to.join(",")}> ip=${entry.ip} age=${Math.round((Date.now() - entry.queuedAt) / 60000)}m`
+    );
+  }
+}
+
+async function flushQueue() {
+  if (flushing || mailQueue.length === 0) return;
+  flushing = true;
+  try {
+    expireQueue();
+    while (mailQueue.length > 0) {
+      const entry = mailQueue[0];
+      try {
+        await transporter.sendMail({ envelope: entry.envelope, raw: entry.raw });
+      } catch (err) {
+        if (relayUnreachable(err)) {
+          console.error(
+            `[` + new Date().toISOString() + `] ` + `QUEUE RETRY FAILED: relay unreachable from=<${entry.envelope.from}> to=<${entry.envelope.to.join(",")}> ip=${entry.ip} queued=${mailQueue.length}`
+          );
+          break;
+        }
+        mailQueue.shift();
+        console.error(
+          `[` + new Date().toISOString() + `] ` + `DISCARDED from=<${entry.envelope.from}> to=<${entry.envelope.to.join(",")}> ip=${entry.ip} reason=relay-denied (${err.message})`
+        );
+        continue;
+      }
+      mailQueue.shift();
+      console.log(
+        `[` + new Date().toISOString() + `] ` + `RELAYED from buffer from=<${entry.envelope.from}> to=<${entry.envelope.to.join(",")}> ip=${entry.ip}`
+      );
+    }
+  } finally {
+    flushing = false;
+  }
+}
+
 const ipLastSeen = new Map();
 
 process.on("uncaughtException", (err) => {
@@ -79,6 +134,14 @@ const server = new SMTPServer({
           callback();
         })
         .catch((err) => {
+          if (relayUnreachable(err)) {
+            mailQueue.push({ envelope, raw: withSpf, ip: originalIp, queuedAt: Date.now() });
+            console.log(
+              `[` + new Date().toISOString() + `] ` + `BUFFERED from=<${envelope.from}> to=<${envelope.to.join(",")}> ip=${originalIp} queued=${mailQueue.length}`
+            );
+            callback();
+            return;
+          }
           console.error(
             `[` + new Date().toISOString() + `] ` + `RELAY FAILED: ${err.message} from=<${envelope.from}> to=<${envelope.to.join(",")}> ip=${originalIp}`
           );
@@ -165,9 +228,13 @@ function clearIPs() {
 server.listen(LISTEN_PORT, LISTEN_HOST, () => {
   loadBlacklist(process.env.BANNED_DOMAINS);
   loadWhitelist(process.env.ALLOWED_DOMAINS);
-  setInterval(clearIPs, 60 * 1000);
+  setInterval(() => {
+    clearIPs();
+    expireQueue();
+  }, 60 * 1000);
+  setInterval(flushQueue, QUEUE_RETRY_MS);
   console.log(
-    `[` + new Date().toISOString() + `] ` + `ENTRYRELAY listening on ${LISTEN_HOST}:${LISTEN_PORT} (STARTTLS) -> next hop ${NEXT_HOP}`
+    `[` + new Date().toISOString() + `] ` + `ENTRYRELAY listening on ${LISTEN_HOST}:${LISTEN_PORT} (STARTTLS) -> next hop ${NEXT_HOP} (queue retry ${(QUEUE_RETRY_MS / 3600000)}h, expiry ${(QUEUE_EXPIRY_MS / 86400000)}d)`
   );
 });
 
